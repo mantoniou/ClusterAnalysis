@@ -1,0 +1,321 @@
+---
+title: "Segmentation of EU countries, based on consumer & business indicators"
+description: "[Oct 27, 2018] Segmentation of EU countries, including cluster analysis based on consumer & business confidence indicators"
+output: html_document
+---
+
+
+
+In this article i used public Eurostat datasets, in order to develop a 
+segmentation of the EU countries. In particular, the datasets used are:  
+- **Consumer Confidence Indicator**  
+- **Business 1**  
+- **Business 1**  
+- **Business 1**  
+- **Business 1**  
+- **Business 1**  
+
+Explain more about the datasets, information, links, copy-paste from quides/site
+SSSSSSSSS SSSSSSSSS  
+fdfd
+eeeeeeee
+eeeeeeeeeeeeeee
+eeeeeeeeeeeeeeeeeeeeeeeeee
+
+The eurozone consists of 19 countries: Austria, Belgium, Cyprus, 
+Estonia, Finland, France, Germany, Greece, Ireland, Italy, Latvia, Lithuania, 
+Luxembourg, Malta, the Netherlands, Portugal, Slovakia, Slovenia, and Spain. 
+
+The [Eurostat package](https://cran.r-project.org/web/packages/eurostat/index.html) 
+used to obtain the original datasets.
+
+More details about the ETL steps can be found, in the actual code, at the link 
+at the end of the article.
+
+```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+
+# Libraries
+library(tidyverse)
+library(rvest)
+library(eurostat)
+
+
+```
+
+
+
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+# Eurostat Business-Sentiment data ##############################################
+dat <- get_eurostat("ei_bssi_m_r2", time_format = "date")
+dat <- label_eurostat(dat)
+
+sent <- 
+  dat %>% 
+  filter(s_adj == "Unadjusted data (i.e. neither seasonally adjusted nor calendar adjusted data)") %>% 
+  select(geo, time, indic, values) %>% 
+  spread(indic, values) %>% 
+  rename(date = time) 
+
+# Save the data
+saveRDS(sent, file = "data/tidy/sent.RDS")
+```
+
+```{r}
+getwd()
+```
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+
+# Load the dataset
+sent <- readRDS("/Users/manos/OneDrive/Projects/R/All_Projects/2018_10_ClusterAnalysis/data/tidy/sent.RDS")
+
+
+# Only Consumer & business indicators
+final <-
+  sent %>%
+  filter(date >= '2014-01-01') %>%
+  select(-date) %>%
+  group_by(geo) %>%
+  summarise_all(median, na.rm = TRUE) %>% 
+  mutate(Business = `Construction confidence indicator` + `Industrial confidence indicator` +
+           `Retail confidence indicator` + `Services Confidence Indicator`,
+         Consumers = `Consumer confidence indicator`)
+
+
+```
+
+
+# Exploratory Analysis
+
+It is important here to check  
+
+Below there is a scatterplot with marker labels indicating the positioning of 
+each country in respect to consumer and confidence indicators.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+ggplot(final) + 
+  geom_label(aes(Consumers, Business, label = geo))+
+  labs(x = "Consumer Confidence",
+       y = "Business Confidence",
+       title = "scatterplot with marker labels")
+
+```
+
+We can already indicate some patterns from the plot above:   
+- There are some outliers, such as Greece(bottom left) & Sweden(top right)  
+- There is a group of countries that are placed in the middle of the plot, indicating
+average consumer & business confidence 
+- There are a lot of countries that business confidence is substantially less than
+consumer confidence
+
+* The other way around doesn't happens
+
+
+
+Country plot with business indicator
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+
+```
+
+* In the plot above we can see......
+
+
+Country plot with confidence indicator
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+
+```
+
+* comments 
+
+???? Maybe a Joy plot
+```{r eval=FALSE, include=FALSE}
+
+select(client_total_soft1, -exclude) %>% 
+  mutate_all(scale) %>% 
+  gather(key = "variable", value = "value") %>% 
+  mutate(value = scale(value)) %>% 
+  ggplot(aes(x = value,
+             y = variable, fill = ..x..)) +
+  ggridges::geom_density_ridges_gradient(rel_min_height = 0.0) +
+  viridis::scale_fill_viridis(name = "") +
+  ggridges::theme_ridges(font_size = 13, grid = TRUE) +
+  theme(axis.title.y = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text.x = element_text(size = 12),
+        text = element_text(family = "mono")) +
+  scale_x_continuous(limits = c(-2, 2))+
+  labs(title = 'Density plots of variables',
+       subtitle = 'All values are scaled')
+```
+* comments
+
+# Modelling
+
+## Hierarchical clustering
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+library(tidyverse)
+library(lubridate)
+
+hier <- as.data.frame(final)
+rownames(hier) <- hier$geo
+
+hier <- dist(scale(hier[, -1]))
+hier.cluster <- hclust(hier)
+
+
+library(dendextend)
+dend_test <- as.dendrogram(hier.cluster)
+plot(dend_test, main = "Hierarchical clustering")
+
+
+dend_2 <- color_branches(dend_test, h = 6)
+plot(dend_2, main = "Hierarchical clustering & cut-off value = 35 ")
+
+```
+
+
+
+## K-means Check optimal number of k with elbow (scree) plot
+
+Total within cluster sum of squares (the sum of euclidean distances between each
+observation and the centroid corresponding to the cluster to which the observation 
+is assigned)
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+library(purrr)
+library(cluster)
+
+
+kmeans.dat <- dist(scale(final[, 2:6]))
+
+# Use map_dbl to run many models with varying value of k (centers)
+tot_withinss <- map_dbl(1:10,  function(k){
+  model <- kmeans(x = kmeans.dat, centers = k)
+  model$tot.withinss
+})
+
+# Generate a data frame containing both k and tot_withinss
+elbow_df <- data.frame(
+  k = 1:10,
+  tot_withinss = tot_withinss
+)
+
+
+ggplot(elbow_df, aes(x = k, y = tot_withinss)) +
+  geom_line() +
+  scale_x_continuous(breaks = 1:10) +
+  ylab("Total within sum of squares")
+
+```
+
+
+## K-means (All variables) silhouette analysis 
+
+It determines how well each of the observations fit into corresponding cluster (Higher is better).
+It involves calculating a measurement called the silhouette width for every 
+observation which consists of 2 parts i) the within cluster distance C (average 
+distance from that observation to every other observation within the cluster) and
+ii) the closest neighbor distance N (the average distance from that observation 
+to the points of the closest neighboring cluster).  
+Calculation:  
+- if C < N then 1 - C/N  
+- if C = N then 0  
+- if C > N then N/C - 1
+
+Interpretation:
+- A value close to 1 suggests that this observation is well matched to its current cluster.  
+- A value of 0 suggests that it is on the border between two clusters and can possibly 
+belong to either one.  
+- A value close to -1 suggests that the observation has a better fit to its 
+closest neighboring cluster.
+
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+library(purrr)
+library(cluster)
+# Use map_dbl to run many models with varying value of k
+sil_width <- map_dbl(2:10,  function(k){
+  model <- pam(x = kmeans.dat, k = k)
+  model$silinfo$avg.width
+})
+
+# Generate a data frame containing both k and sil_width
+sil_df <- data.frame(
+  k = 2:10,
+  sil_width = sil_width
+)
+
+# Plot the relationship between k and sil_width
+ggplot(sil_df, aes(x = k, y = sil_width)) +
+  geom_line() +
+  scale_x_continuous(breaks = 2:10)+
+  ylab("Average Silhouette width")
+
+```
+
+
+## K-means (All variables) explore variables
+
+**Below there is a table with information about all clusters (with all variables)**
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+set.seed(42)
+
+# Build a k-means model for the customers_spend with a k of 2
+model_customers <- kmeans(kmeans.dat, centers = 4)
+
+# Extract the vector of cluster assignments from the model
+clust_countries <- model_customers$cluster
+
+# Build the segment_customers dataframe
+segment_countries <- mutate(final[1:6], cluster = clust_countries)
+
+library(DT)
+# Calculate the mean for each category
+segment_countries %>% 
+  group_by(cluster) %>% 
+  # summarise_all(funs(round(mean(.),2))) %>% 
+  # datatable(filter = 'top', options = list(autoWidth = TRUE))
+  add_tally() %>% 
+  summarise_each(funs(round(mean(., na.rm = TRUE),2))) %>% 
+  select(1, "n", 3:ncol(final)) %>% 
+  datatable(filter = 'top', options = list(pageLength = 5, autoWidth = TRUE, dom = 'pt'))
+
+
+```
+
+
+**Below there is a table of all partners indicating their cluster (All variables) **
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+library(DT)
+# Print the table with 
+segment_countries %>% 
+  select(c(1, "cluster", 2:6)) %>% 
+  datatable(filter = 'top', options = list(pageLength = 10, autoWidth = TRUE, dom = 'pt'))
+
+```
+
+
+
+## Map countries with cluster
+
+```{r}
+
+```
+
+
+
+
+
+
+
