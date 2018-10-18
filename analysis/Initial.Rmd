@@ -60,9 +60,6 @@ sent <-
 saveRDS(sent, file = "data/tidy/sent.RDS")
 ```
 
-```{r}
-getwd()
-```
 
 
 ```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
@@ -97,6 +94,14 @@ each country in respect to consumer and confidence indicators.
 
 ggplot(final) + 
   geom_label(aes(Consumers, Business, label = geo))+
+  labs(x = "Consumer Confidence",
+       y = "Business Confidence",
+       title = "scatterplot with marker labels")
+
+
+ggplot(final, aes(Consumers, Business)) +
+  geom_point()+
+  geom_text(aes(label = geo), check_overlap = TRUE)+
   labs(x = "Consumer Confidence",
        y = "Business Confidence",
        title = "scatterplot with marker labels")

@@ -228,7 +228,8 @@ jam <- final %>%
 # 
 # load("World.rda")
 
-load("C:/Users/eam/Downloads/World.rda")
+load("C:/Users/eam/Downloads/World.rda") # Windows
+load("data/raw/World.rda") # Mac
 
 
 Europe <- filter(World, continent == "Europe")
