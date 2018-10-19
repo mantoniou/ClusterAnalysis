@@ -1,7 +1,7 @@
 ---
 title: "Segmentation of EU countries, based on consumer & business indicators"
 description: "[Oct 27, 2018] Segmentation of EU countries, including cluster analysis based on consumer & business confidence indicators"
-output: html_document
+output: html_notebook
 ---
 
 
@@ -65,7 +65,8 @@ saveRDS(sent, file = "data/tidy/sent.RDS")
 ```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 
 # Load the dataset
-sent <- readRDS("/Users/manos/OneDrive/Projects/R/All_Projects/2018_10_ClusterAnalysis/data/tidy/sent.RDS")
+sent <- readRDS("/Users/manos/OneDrive/Projects/R/All_Projects/2018_10_ClusterAnalysis/data/tidy/sent.RDS") # Mac
+# sent <- readRDS("C://Users//eam//OneDrive - Softone Technologies S.A//R_Help//clust//data//tidy//sent.RDS") # Win
 
 
 # Only Consumer & business indicators
@@ -75,9 +76,12 @@ final <-
   select(-date) %>%
   group_by(geo) %>%
   summarise_all(median, na.rm = TRUE) %>% 
-  mutate(Business = `Construction confidence indicator` + `Industrial confidence indicator` +
-           `Retail confidence indicator` + `Services Confidence Indicator`,
-         Consumers = `Consumer confidence indicator`)
+  mutate(Business = (`Construction confidence indicator` + `Industrial confidence indicator` +
+           `Retail confidence indicator` + `Services Confidence Indicator`)/4,
+         Consumers = `Consumer confidence indicator`) %>% 
+  mutate(geo = recode(geo, 
+                      "Germany (until 1990 former territory of the FRG)" = "Germany",
+                      "Czechia" = "Czech Rep."))
 
 
 ```
@@ -87,24 +91,136 @@ final <-
 
 It is important here to check  
 
-Below there is a scatterplot with marker labels indicating the positioning of 
-each country in respect to consumer and confidence indicators.
+
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
 
-ggplot(final) + 
-  geom_label(aes(Consumers, Business, label = geo))+
-  labs(x = "Consumer Confidence",
-       y = "Business Confidence",
-       title = "scatterplot with marker labels")
+# Create Map data ##############################################################
+
+library(grid)
+library(rworldmap)
+
+
+# Get the world map
+worldMap <- getMap()
+
+# Member States of the European Union
+europeanUnion <- c("Austria","Belgium","Bulgaria","Croatia","Cyprus",
+                   "Czech Rep.","Denmark","Estonia","Finland","France",
+                   "Germany","Greece","Hungary","Ireland","Italy","Latvia",
+                   "Lithuania","Luxembourg","Malta","Netherlands","Poland",
+                   "Portugal","Romania","Slovakia","Slovenia","Spain",
+                   "Sweden","United Kingdom")
+# Select only the index of states member of the E.U.
+indEU <- which(worldMap$NAME%in%europeanUnion)
+
+
+# Extract longitude and latitude border's coordinates of members states of E.U. 
+europeCoords <- lapply(indEU, function(i){
+  df <- data.frame(worldMap@polygons[[i]]@Polygons[[1]]@coords)
+  df$region =as.character(worldMap$NAME[i])
+  colnames(df) <- list("long", "lat", "region")
+  return(df)
+})
+
+europeCoords <- do.call("rbind", europeCoords)
+
+```
+
+
+It would be interesting to see the map plots of the confidence indicators. At first
+below there is a plot with the aggreagated business indicator
+
+```{r}
+# Create table
+europeanUnionTable <- data.frame(country = final$geo, value = final$Business)
+europeCoords$value <- europeanUnionTable$value[match(europeCoords$region,europeanUnionTable$country)]
+
+
+# Plot the map
+ggplot() + 
+  geom_polygon(data = europeCoords, aes(x = long, y = lat, group = region, fill = value),
+                             colour = "black", size = 0.1) +
+  coord_map(xlim = c(-13, 35),  ylim = c(32, 71)) + 
+  scale_fill_gradient(name = "Business Confidence Indicator", low = "#FF0000FF", high = "#FFFF00FF", na.value = "grey50") +
+  theme(axis.text.x = element_blank(),
+  axis.text.y = element_blank(), axis.ticks.x = element_blank(),
+  axis.ticks.y = element_blank(), axis.title = element_blank(),
+  plot.margin = unit(0 * c(-1.5, -1.5, -1.5, -1.5), "lines")) + 
+  scale_fill_gradient(name = "Business \nConfidence", low = "#FF0000FF", high = "#FFFF00FF", na.value = "grey50") +
+  labs(title = "Business Confidence per country",
+       subtitle = "Red indicates low confidence & yellow indicates high")+
+  theme(panel.grid = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.background = element_blank())
+
+```
+
+
+- It is clear that there are a few differences between countries.
+- In general Nothern Europe countries tend to have higher business confidence 
+indicators.
+
+
+Below there is a plot with the confidence indicator per EU country
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+# Create table
+europeanUnionTable <- data.frame(country = final$geo, value = final$Consumers)
+europeCoords$value <- europeanUnionTable$value[match(europeCoords$region,europeanUnionTable$country)]
+
+
+# Plot the map
+ggplot() + 
+  geom_polygon(data = europeCoords, aes(x = long, y = lat, group = region, fill = value),
+                             colour = "black", size = 0.1) +
+  coord_map(xlim = c(-13, 35),  ylim = c(32, 71)) + 
+  scale_fill_gradient(name = "Consumers Confidence Indicator", low = "#FF0000FF", high = "#FFFF00FF", na.value = "grey50") +
+  theme(axis.text.x = element_blank(),
+  axis.text.y = element_blank(), axis.ticks.x = element_blank(),
+  axis.ticks.y = element_blank(), axis.title = element_blank(),
+  plot.margin = unit(0 * c(-1.5, -1.5, -1.5, -1.5), "lines")) + 
+  scale_fill_gradient(name = "Consumer \nConfidence", low = "#FF0000FF", high = "#FFFF00FF", na.value = "grey50") +
+  labs(title = "Consumers Confidence per country",
+       subtitle = "Red indicates low confidence & yellow indicates high")+
+  theme(panel.grid = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.background = element_blank())
+
+
+```
+
+- Again, Nothern Europe countries tend to have higher consumers confidence 
+indicators.  
+- It seems that there are outlies here. Greece has significantly lower confidence indicator
+than the rest of the countries. 
+
+
+
+Below there is a scatterplot with marker labels indicating the positioning of 
+each country in respect to consumer and confidence indicators. The overall 
+business confidence indicator is the average of all business related features 
+(Construction confidence indicator, Industrial confidence indicator, Retail 
+confidence indicator & Services Confidence Indicator)
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+# ggplot(final) + 
+#   geom_label(aes(Consumers, Business, label = geo))+
+#   labs(x = "Consumer Confidence",
+#        y = "Business Confidence",
+#        title = "scatterplot with marker labels")
 
 
 ggplot(final, aes(Consumers, Business)) +
   geom_point()+
-  geom_text(aes(label = geo), check_overlap = TRUE)+
+  geom_text(aes(label = geo), check_overlap = TRUE, vjust = 1, hjust = 1)+
   labs(x = "Consumer Confidence",
        y = "Business Confidence",
-       title = "scatterplot with marker labels")
+       title = "Scatterplot of EU countries confidence level (Business & Consumer)")
 
 ```
 
@@ -118,78 +234,31 @@ consumer confidence
 * The other way around doesn't happens
 
 
+# Modelling-Clustering
 
-Country plot with business indicator
-```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
-
-
-```
-
-* In the plot above we can see......
+There are quite a few differences between countries regarding 
+confidence indicators. It would be very interesting to develop a segmentation, in
+order to check how well the countries are forming teams.  
 
 
-Country plot with confidence indicator
-```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
-
-
-```
-
-* comments 
-
-???? Maybe a Joy plot
-```{r eval=FALSE, include=FALSE}
-
-select(client_total_soft1, -exclude) %>% 
-  mutate_all(scale) %>% 
-  gather(key = "variable", value = "value") %>% 
-  mutate(value = scale(value)) %>% 
-  ggplot(aes(x = value,
-             y = variable, fill = ..x..)) +
-  ggridges::geom_density_ridges_gradient(rel_min_height = 0.0) +
-  viridis::scale_fill_viridis(name = "") +
-  ggridges::theme_ridges(font_size = 13, grid = TRUE) +
-  theme(axis.title.y = element_blank(),
-        axis.title.x = element_blank(),
-        axis.text.x = element_text(size = 12),
-        text = element_text(family = "mono")) +
-  scale_x_continuous(limits = c(-2, 2))+
-  labs(title = 'Density plots of variables',
-       subtitle = 'All values are scaled')
-```
-* comments
-
-# Modelling
-
-## Hierarchical clustering
-
-```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
-library(tidyverse)
-library(lubridate)
-
-hier <- as.data.frame(final)
-rownames(hier) <- hier$geo
-
-hier <- dist(scale(hier[, -1]))
-hier.cluster <- hclust(hier)
-
-
-library(dendextend)
-dend_test <- as.dendrogram(hier.cluster)
-plot(dend_test, main = "Hierarchical clustering")
-
-
-dend_2 <- color_branches(dend_test, h = 6)
-plot(dend_2, main = "Hierarchical clustering & cut-off value = 35 ")
-
-```
-
+The k-means algorithm was used in order to develop the segmentation. 
+SSSSSSSS
+SSSSSSSSSSSSSSSS
+SSSSSSSSSS
+SSSSSSSS
+SSSSSSSSS
 
 
 ## K-means Check optimal number of k with elbow (scree) plot
 
-Total within cluster sum of squares (the sum of euclidean distances between each
-observation and the centroid corresponding to the cluster to which the observation 
-is assigned)
+The scree plot below, can be used to check for the suitable number of clusters. 
+
+In detail, the total within cluster sum of squares is calculated (the sum of 
+euclidean distances between each observation and the centroid corresponding to 
+the cluster to which the observation is assigned). 
+
+So what we are looking for is the point at which the curve begins to flatten out. 
+
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
 library(purrr)
@@ -214,14 +283,18 @@ elbow_df <- data.frame(
 ggplot(elbow_df, aes(x = k, y = tot_withinss)) +
   geom_line() +
   scale_x_continuous(breaks = 1:10) +
-  ylab("Total within sum of squares")
+  labs(y = "Total within sum of squares",
+       title = "Elbow (scree) plot",
+       subtitle = "Check optimal number of clusters")
 
 ```
 
 
 ## K-means (All variables) silhouette analysis 
 
-It determines how well each of the observations fit into corresponding cluster (Higher is better).
+In general, silhouette analysis determines how well each of the observations fit into 
+corresponding cluster (Higher is better).
+
 It involves calculating a measurement called the silhouette width for every 
 observation which consists of 2 parts i) the within cluster distance C (average 
 distance from that observation to every other observation within the cluster) and
@@ -261,9 +334,16 @@ sil_df <- data.frame(
 ggplot(sil_df, aes(x = k, y = sil_width)) +
   geom_line() +
   scale_x_continuous(breaks = 2:10)+
-  ylab("Average Silhouette width")
+  labs(y = "Average Silhouette width",
+       title = "Silhouette Analysis")
 
 ```
+
+Although the silhouette value of the two clusters is the highest, four clusters
+were chosen for a few reasons:  
+- It is close to the highest value  
+- From the elbow plot, it seems that the curve is flatten out after cluster 4  
+- Two clusters are very few to represent differences in EU countries 
 
 
 ## K-means (All variables) explore variables
@@ -281,7 +361,13 @@ model_customers <- kmeans(kmeans.dat, centers = 4)
 clust_countries <- model_customers$cluster
 
 # Build the segment_customers dataframe
-segment_countries <- mutate(final[1:6], cluster = clust_countries)
+segment_countries <- 
+  mutate(final[1:6], cluster = clust_countries) %>% 
+  mutate(cluster = recode(cluster, 
+                             "1" = "A",
+                             "2" = "B",
+                             "3" = "D",
+                             "4" = "C")) 
 
 library(DT)
 # Calculate the mean for each category
@@ -312,15 +398,132 @@ segment_countries %>%
 
 
 
-## Map countries with cluster
+## PCA Biplot
 
+It is a dimensionality reduction technique, which find structure in features and
+Aid in visualization.  
+- It will find linear combination of variables to create principal components (new features)  
+- Maintain most variance in the data  
+- Principal components (new features) are uncorrelated (i.e. orthogonal to each other)
+
+
+This plot shows all the original observations plotted on the first 2 principal 
+components. It also shows the original features mapped as vectors.
+
+It shows that there are 4 dinstict teams:
+- active_quarters (activity)
+- median_dso
+- median_balance
+- The rest of the features are correlated in the original data...
+
+        
 ```{r}
+
+pca_soft <- prcomp(scale(kmeans.dat))
+
+
+# # Create a vector with clusters
+# clusters <- factor(model_customers$cluster) 
+# levels(clusters) <- c("B", "D", "A", "E", "C")
+
+# simple Biplot
+biplot(pca_soft)
+
+
+library(ggord)
+
+ggord(pca_soft, segment_countries$cluster, ellipse = FALSE, hull = TRUE, arrow = 1, vec_ext = 3, veccol = 'red', veclsz = 1) +
+  labs(title = "Biplot of principal components analysis",
+       subtitle = "Check how well the clusters are separated",
+       col = "Clusters")
+
 
 ```
 
 
 
 
+## Map countries with cluster
+
+```{r}
+# Create table with results
+europeanUnionTable <- data.frame(country = segment_countries$geo, value = factor(segment_countries$cluster))
+europeCoords$value <- europeanUnionTable$value[match(europeCoords$region,europeanUnionTable$country)]
+
+
+# Plot the map
+ggplot() + 
+  geom_polygon(data = europeCoords, aes(x = long, y = lat, group = region, fill = value),
+                             colour = "black", size = 0.1) +
+  coord_map(xlim = c(-13, 35),  ylim = c(32, 71))+ 
+  theme(
+  axis.text.x = element_blank(),
+  axis.text.y = element_blank(), axis.ticks.x = element_blank(),
+  axis.ticks.y = element_blank(), axis.title = element_blank(),
+  plot.margin = unit(0 * c(-1.5, -1.5, -1.5, -1.5), "lines")) + 
+  labs(title = "Cluster per country",
+       subtitle = "",
+       fill = "Cluster")+
+  theme(panel.grid = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank(),
+        panel.background = element_blank()) +
+   scale_fill_manual(values=c("#33A02C", "#7EE08B", "#FFA500", "#E31A1C"))
+
+```
 
 
 
+# SCRAP WORK 
+
+```{r}
+knitr::knit_exit()
+```
+
+## Hierarchical clustering
+
+The first methodology i used, was hierarchical clustering. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+library(tidyverse)
+library(lubridate)
+
+hier <- as.data.frame(final)
+rownames(hier) <- hier$geo
+
+hier <- dist(scale(hier[, -1]))
+hier.cluster <- hclust(hier)
+
+
+library(dendextend)
+dend_test <- as.dendrogram(hier.cluster)
+# plot(dend_test, main = "Hierarchical clustering")
+
+
+dend_2 <- color_branches(dend_test, h = 6)
+plot(dend_2, main = "Hierarchical clustering & cut-off value = 35 ")
+
+```
+
+
+???? Maybe a Joy plot
+```{r eval=FALSE, include=FALSE}
+
+select(client_total_soft1, -exclude) %>% 
+  mutate_all(scale) %>% 
+  gather(key = "variable", value = "value") %>% 
+  mutate(value = scale(value)) %>% 
+  ggplot(aes(x = value,
+             y = variable, fill = ..x..)) +
+  ggridges::geom_density_ridges_gradient(rel_min_height = 0.0) +
+  viridis::scale_fill_viridis(name = "") +
+  ggridges::theme_ridges(font_size = 13, grid = TRUE) +
+  theme(axis.title.y = element_blank(),
+        axis.title.x = element_blank(),
+        axis.text.x = element_text(size = 12),
+        text = element_text(family = "mono")) +
+  scale_x_continuous(limits = c(-2, 2))+
+  labs(title = 'Density plots of variables',
+       subtitle = 'All values are scaled')
+```
+* comments
