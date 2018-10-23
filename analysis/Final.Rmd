@@ -1,7 +1,10 @@
 ---
 title: "Segmentation of EU countries, based on consumer & business indicators"
-description: "[Oct 27, 2018] Segmentation of EU countries, including cluster analysis based on consumer & business confidence indicators"
-output: html_notebook
+output:
+  html_document:
+    df_print: paged
+description: '[Oct 27, 2018] Segmentation of EU countries, including cluster analysis
+  based on consumer & business confidence indicators'
 ---
 
 
@@ -146,7 +149,7 @@ europeCoords <- do.call("rbind", europeCoords)
 It would be interesting to see the map plots of the confidence indicators. Below
 there are plots with the aggregated business & consumer indicators 
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
 # Create table
 europeanUnionTable <- data.frame(country = final$geo, value = final$Business)
 europeCoords$value <- europeanUnionTable$value[match(europeCoords$region,europeanUnionTable$country)]
@@ -217,7 +220,8 @@ confidence indicator & Services Confidence Indicator)
 ```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
 library(ggthemes)
 
-filter(final, geo %in% europeanUnion) %>% 
+final <- filter(final, geo %in% europeanUnion) 
+final %>% 
 ggplot(aes(Consumers, Business)) +
   geom_point()+
   geom_text(aes(label = geo), check_overlap = TRUE, vjust = 1, hjust = 1) +
@@ -358,7 +362,7 @@ were chosen for a few reasons:
 
 
 
-Below there is a table with **information about all clusters**, indicating the 
+Below there is a heatmap plot with **information about all clusters**, indicating the 
 mean value of each confidence indicator within the cluster
 
 
@@ -366,35 +370,40 @@ mean value of each confidence indicator within the cluster
 set.seed(42)
 
 # Build a k-means model for the customers_spend with a k of 2
-model_customers <- kmeans(kmeans.dat, centers = 4)
+model_customers <- kmeans(kmeans.dat, centers = 2)
 
 # Extract the vector of cluster assignments from the model
 clust_countries <- model_customers$cluster
 
 # Build the segment_customers dataframe
-segment_countries <- 
-  mutate(final[1:6], cluster = clust_countries) %>% 
-  mutate(cluster = recode(cluster, 
-                             "1" = "A",
-                             "2" = "B",
-                             "3" = "D",
-                             "4" = "C")) 
+segment_countries <-
+  mutate(final[1:6], cluster = clust_countries) %>%
+  mutate(cluster = recode(cluster,
+                             "1" = "B",
+                             "2" = "A"))
 
 library(DT)
 # Calculate the mean for each category
-segment_countries %>% 
-  group_by(cluster) %>% 
-  # summarise_all(funs(round(mean(.),2))) %>% 
+heatmap <- 
+segment_countries %>%
+  group_by(cluster) %>%
+  # summarise_all(funs(round(mean(.),2))) %>%
   # datatable(filter = 'top', options = list(autoWidth = TRUE))
-  add_tally() %>% 
-  summarise_each(funs(round(mean(., na.rm = TRUE),2))) %>% 
-  select(1, "n", 3:ncol(final)) %>% 
-  datatable(filter = 'top', options = list(pageLength = 5, autoWidth = TRUE, dom = 'pt'))
+  add_tally() %>%
+  summarise_each(funs(round(mean(., na.rm = TRUE),2))) %>%
+  select("n", 3:ncol(final))
 
+rownames(heatmap) <- c("A", "B") 
+  
+library(d3heatmap)
 
+  heatmap %>% 
+  d3heatmap(scale = "column", dendrogram = "both", color = "Blues",
+            cexRow = .7)
 ```
 
-- ?????????????  
+
+- Cluster  ?????????????
 - ??????????????  
 - ?????????????
 
@@ -455,14 +464,12 @@ ggplot() +
         axis.text = element_blank(),
         axis.ticks = element_blank(),
         panel.background = element_blank()) +
-   scale_fill_manual(values=c("#33A02C", "#FFA100", "#F7CE68", "#E31A1C"))
+   scale_fill_manual(values=c("#33A02C", "#E31A1C"))
 
 ```
 
-- Cluster A are the EU countries with the higher confidence  
-- Cluster B are above average in confidence  
-- Cluster C are below average  
-- Cluster D (Greece) has extremely low confidence 
+- Cluster A are ????????????????????  
+- Cluster B are ????????????????????????????????
 
 
 Below there is a table of all EU countries indicating their cluster.
