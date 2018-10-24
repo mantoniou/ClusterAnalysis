@@ -362,7 +362,7 @@ were chosen for a few reasons:
 
 
 
-Below there is a heatmap plot with **information about all clusters**, indicating the 
+Below there is a table plot with **information about all clusters**, indicating the 
 mean value of each confidence indicator within the cluster
 
 
@@ -382,30 +382,23 @@ segment_countries <-
                              "1" = "B",
                              "2" = "A"))
 
-library(DT)
+library(kableExtra)
+
 # Calculate the mean for each category
-heatmap <- 
 segment_countries %>%
   group_by(cluster) %>%
-  # summarise_all(funs(round(mean(.),2))) %>%
-  # datatable(filter = 'top', options = list(autoWidth = TRUE))
   add_tally() %>%
   summarise_each(funs(round(mean(., na.rm = TRUE),2))) %>%
-  select("n", 3:ncol(final))
+  select("cluster", "n", 3:ncol(final)) %>% 
+  kable() %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
 
-rownames(heatmap) <- c("A", "B") 
-  
-library(d3heatmap)
-
-  heatmap %>% 
-  d3heatmap(scale = "column", dendrogram = "both", color = "Blues",
-            cexRow = .7)
 ```
 
 
-- Cluster  ?????????????
-- ??????????????  
-- ?????????????
+- Cluster A tend to have higher values than cluster B on Construction confidence indicator, Consumer confidence indicator & Services Confidence Indicator
+
+- Both clusters tend to have similar values on Industrial confidence indicator & Retail confidence indicator
 
 ## Principal components
 It would be nice to plot these clustering results and check these out visually. 
@@ -422,7 +415,7 @@ In particular:
 The plot below (biplot) shows all the original observations plotted on the first
 2 principal components. 
         
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
 
 pca_soft <- prcomp(scale(kmeans.dat))
 
@@ -434,14 +427,11 @@ ggord(pca_soft, segment_countries$cluster, ellipse = FALSE, hull = TRUE, arrow =
 
 ```
 
-- The A cluster is clearly stands out from the rest of the clusters  
-- Clusters B & C are ovelapped to some extend  
-- Cluster D (Greece) is clearly stands out from the rest
+- The A cluster is clearly stands out from cluster B
+- There is just a minor overlap 
 
-It can be said, that clusters B & C could either considered as "close related" or
-even form a wider cluster since the differences are small. 
 
-```{r}
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
 # Create table with results
 europeanUnionTable <- data.frame(country = segment_countries$geo, value = factor(segment_countries$cluster))
 europeCoords$value <- europeanUnionTable$value[match(europeCoords$region,europeanUnionTable$country)]
@@ -457,8 +447,8 @@ ggplot() +
   axis.text.y = element_blank(), axis.ticks.x = element_blank(),
   axis.ticks.y = element_blank(), axis.title = element_blank(),
   plot.margin = unit(0 * c(-1.5, -1.5, -1.5, -1.5), "lines")) + 
-  labs(title = "Clusters in EU (based on confidence indicators)",
-       subtitle = "",
+  labs(title = "Clusters in EU ",
+       subtitle = "based on confidence indicators",
        fill = "Cluster")+
   theme(panel.grid = element_blank(),
         axis.text = element_blank(),
@@ -468,8 +458,8 @@ ggplot() +
 
 ```
 
-- Cluster A are ????????????????????  
-- Cluster B are ????????????????????????????????
+- Finally, Nothern Europe countries tend to have higher consumers confidence indicators that place them in cluster A  
+- The theory of the two-speed Europe comes true here..
 
 
 Below there is a table of all EU countries indicating their cluster.
@@ -480,7 +470,9 @@ library(DT)
 # Print the table with 
 segment_countries %>% 
   select(c(1, "cluster", 2:6)) %>% 
-  datatable(filter = 'top', options = list(pageLength = 10, autoWidth = TRUE, dom = 'pt'))
+  mutate(cluster = factor(cluster)) %>% 
+  rename(Cluster = cluster, Country = geo) %>% 
+  datatable(filter = 'top', options = list(pageLength = 10, autoWidth = TRUE, dom = 'pt', scrollX = TRUE))
 
 ```
 
