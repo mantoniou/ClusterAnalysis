@@ -9,7 +9,7 @@ description: '[Oct 27, 2018] Segmentation of EU countries, including cluster ana
 
 
 
-In this article i used a public Eurostat dataset, in order to develop a 
+In this article i used a public Eurostat dataset, to develop a 
 segmentation of the EU countries. 
 This dataset consists of 5 confidence indicators:  
 
@@ -19,7 +19,7 @@ This dataset consists of 5 confidence indicators:
 - **Retail confidence indicator**  
 - **Services Confidence Indicator**  
 
-These indicators are formed via qualitative surveys are conducted on a monthly 
+These indicators are formed via qualitative surveys which are conducted on a monthly 
 basis in the following areas:
 **manufacturing industry, construction, consumers, retail trade, services and financial services**. 
 These surveys started in 1980 and gradually include all the new EU 
@@ -42,7 +42,7 @@ The [Eurostat package](https://cran.r-project.org/web/packages/eurostat/index.ht
 used to obtain the original datasets.
 
 More details about the ETL steps can be found, in the actual code, at the link 
-at the end of the article.
+in the end of the article.
 
 ```{r message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 
@@ -102,12 +102,12 @@ final <-
 # ETL & Exploratory Analysis
 
 The original dataset consists of 11,340 observations that include these indicators
-in some countries for a specific month. For the analysis i only used data from 
-2014 onwards. In the processed dataset i used the median values of each variable 
-in each country, so finally the dataset consists of 34 observations. One more 
-variable was created, as the sum of all Business related confidence indicators 
+for EU countries in monthly basis. In the processed dataset i used i) observations
+from 2014 onwards & ii) the median values of each variable for each country, so 
+finally the dataset consists of 28 observations in total. One more 
+variable was created, by averaging all Business related confidence indicators 
 (Construction, Industrial, Retail & Services Confidence Indicators), in order 
-to have a genaral **business confidence indicator**.
+to use a general **business confidence indicator**.
 
 
 
@@ -147,7 +147,7 @@ europeCoords <- do.call("rbind", europeCoords)
 
 
 It would be interesting to see the map plots of the confidence indicators. Below
-there are plots with the aggregated business & consumer indicators 
+there are plots with the consumer & averaging business confidence indicators. 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
 # Create table
@@ -167,7 +167,7 @@ ggplot() +
   plot.margin = unit(0 * c(-1.5, -1.5, -1.5, -1.5), "lines")) + 
   scale_fill_gradient(name = "Business \nConfidence", low = "#FF0000FF", high = "#FFFF00FF", na.value = "grey50") +
   labs(title = "Business Confidence per EU country",
-       subtitle = "-Median values of bus. conf. indicators for 2014-2018 \n-Red indicates low confidence & yellow indicates high ")+
+       subtitle = "-Median value of aggregated bus. conf. indicators for 2014-2018 \n-Red indicates low confidence & yellow indicates high confidence levels")+
   theme(panel.grid = element_blank(),
         axis.text = element_blank(),
         axis.ticks = element_blank(),
@@ -195,7 +195,7 @@ ggplot() +
   plot.margin = unit(0 * c(-1.5, -1.5, -1.5, -1.5), "lines")) + 
   scale_fill_gradient(name = "Consumer \nConfidence", low = "#FF0000FF", high = "#FFFF00FF", na.value = "grey50") +
   labs(title = "Consumers Confidence per EU country",
-       subtitle = "-Median values of consumer conf. indicator for 2014-2018 \n-Red indicates low confidence & yellow indicates high")+
+       subtitle = "-Median value of consumer conf. indicator for 2014-2018 \n-Red indicates low confidence & yellow indicates high confidence levels")+
   theme(panel.grid = element_blank(),
         axis.text = element_blank(),
         axis.ticks = element_blank(),
@@ -205,17 +205,14 @@ ggplot() +
 ```
 
 - It is clear that there are significant differences between countries.  
-- Again, Nothern Europe countries tend to have higher consumers confidence 
+- Nothern Europe countries tend to have higher consumers confidence 
 indicators.  
-- It seems that there are outlies here. Greece has significantly lower confidence indicator
+- There are some outliers here. E.g. Greece has significantly lower confidence indicator
 than the rest of the countries. 
 
 
 Below there is a scatterplot with marker labels indicating the positioning of 
-each country in respect to consumer and confidence indicators. The overall 
-business confidence indicator is the average of all business related features 
-(Construction confidence indicator, Industrial confidence indicator, Retail 
-confidence indicator & Services Confidence Indicator)
+each country in respect to consumer and business confidence indicators. 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
 library(ggthemes)
@@ -237,15 +234,15 @@ ggplot(aes(Consumers, Business)) +
 We can indicate some patterns from the plot above, similar to the findings before:   
 - There are some outliers, such as Greece(bottom left) & Sweden(top right)  
 - There is a group of countries that are placed in the middle of the plot, indicating
-average consumer & business confidence 
+average consumer & business confidence  
 - In all countries the business confidence is substantially higher than
 consumer confidence
 
 
 # Segmentation
 
-There are quite a few differences between countries regarding 
-confidence indicators. It would be very interesting to develop a segmentation, in
+Since there are quite a few differences between countries regarding 
+confidence indicators, it would be very interesting to develop a segmentation, in
 order to check how well the countries are forming teams.  
 The **k-means** algorithm used for the segmentation. 
 It is the widest used unsupervised learning algorithm. The procedure follows
@@ -354,12 +351,8 @@ ggplot(sil_df, aes(x = k, y = sil_width)) +
 
 ```
 
-Although the silhouette value of the two clusters is the highest, four clusters
-were chosen for a few reasons:  
-- It is close to the highest value  
-- From the elbow plot, it seems that the curve is flatten out after cluster 4  
-- Two clusters are very few to represent differences in EU countries 
-
+In conclusion, i proceed with 2 clusters, as it is more suitable both from a 
+technical & practical point of view.
 
 
 Below there is a table plot with **information about all clusters**, indicating the 
@@ -404,7 +397,7 @@ segment_countries %>%
 It would be nice to plot these clustering results and check these out visually. 
 But it is impossible to visualise so many variables, as various dimensions are
 required. 
-One way to overame this, is to use some dimensionality reduction technique. In 
+One way to overcame this, is to use some dimensionality reduction technique. In 
 particular, PCA (principal components analysis) is used.  
 It finds structure in features and aid in visualization.  
 In particular:     
@@ -430,6 +423,7 @@ ggord(pca_soft, segment_countries$cluster, ellipse = FALSE, hull = TRUE, arrow =
 - The A cluster is clearly stands out from cluster B
 - There is just a minor overlap 
 
+Finally, below there is a map plot of the clustering results.
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
 # Create table with results
@@ -458,8 +452,9 @@ ggplot() +
 
 ```
 
-- Finally, Nothern Europe countries tend to have higher consumers confidence indicators that place them in cluster A  
-- The theory of the two-speed Europe comes true here..
+- In general, nothern Europe countries tend to have higher confidence indicators that place them in cluster A  
+- The clustering results can confirm the theory of the two-speed EU (significant differences 
+between countries in many aspects as e.g. standard of living)... 
 
 
 Below there is a table of all EU countries indicating their cluster.
